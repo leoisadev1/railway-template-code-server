@@ -1,71 +1,53 @@
 # Deploy and Host code-server on Railway
 
-Pinned VS Code in the browser ([code-server](https://github.com/coder/code-server) `4.135.0`) with a persistent home volume, a generated login password, Node.js + Python, and an HTTP healthcheck.
-
-This is a **single service**. It is not the full Coder control plane.
+A personal VS Code workspace in the browser, using code-server 4.135.0 with Node.js, npm, Python, and a persistent home directory. This is one editor service, not the Coder control plane.
 
 ## About Hosting code-server
 
-This template builds a thin Dockerfile `FROM codercom/code-server:4.135.0` (Code 1.135.0). Railway gives it a public HTTPS domain. A volume is mounted at `/home/coder` so settings, Open VSX extensions, git config, and project files survive restarts.
+The Dockerfile pins the code-server image by digest and adds development tools. Startup initializes ownership of the mounted home, then runs the editor and integrated terminal as `coder` (UID 1000). Password authentication is explicitly enabled.
 
-The image also installs Node.js, npm, Python 3, pip, venv, and build-essential. code-server listens on `$PORT`, requires password auth, and exposes unauthenticated `GET /healthz`.
+### Deploy and sign in
 
-## Why Deploy code-server on Railway
+1. Deploy with the `/home/coder` volume attached.
+2. Copy the generated `PASSWORD` from the service's Railway Variables tab.
+3. Open your public HTTPS domain and sign in on the code-server login page.
+4. Open a folder beneath `/home/coder`. Use Terminal → New Terminal to check `id`, `pwd`, `node --version`, and `python --version`.
+5. Save an editor file, reload it, and verify it again after a restart before depending on the workspace for important work.
 
-Faraz's 2022 `coder/deploy-code-server` marketplace listing still ships **code-server 4.9.0**, with **no volume** and **no healthcheck**. Official Coder is a heavier control plane.
+### Authentication and ports
 
-This listing is healthier:
+- `PASSWORD` defaults to Railway's `${{secret()}}` generator. Do not use a shared or dummy password.
+- Optional `HASHED_PASSWORD` accepts an upstream-supported Argon2 hash and takes precedence over `PASSWORD`; remove the plaintext variable when switching to a hash. Startup rejects empty credentials even if an old config file contains a password.
+- `PORT` defaults to `8080` and is passed explicitly to the editor. Keep an explicitly configured domain target port aligned with it.
+- Railway terminates HTTPS and forwards HTTP/WebSocket traffic to the container. There is no bundled SSH daemon.
+- `/healthz` is an unauthenticated process-heartbeat endpoint, with a 60-second startup healthcheck allowance. It does not prove a successful editor save, authenticated session, or terminal connection.
 
-- Pins a current 4.x tag (`4.135.0`) instead of `:latest` or 4.9.0
-- Mounts `/home/coder` so settings and extensions persist
-- Generates `PASSWORD` (`${{secret()}}`) instead of a shared default
-- HTTP healthchecks `/healthz` so Railway only routes to a live editor
-- Installs Node + Python in the image
-- Stays one service (code-server), not Coder's team control plane
+### Persistence and access boundaries
+
+The `/home/coder` volume stores projects, editor settings, Open VSX extensions, git configuration, and code-server configuration. Existing root-owned files are migrated without following symlinks; existing user-owned content is preserved. Keep Python virtual environments and other user-installed dependencies under the mounted home. Add system packages in the Dockerfile rather than relying on ephemeral container changes.
+
+The upstream image includes passwordless sudo: an authenticated terminal user can become root. Running the editor as coder is not a privilege boundary. Use one workspace service for trusted users only. Integrated-terminal access includes workspace files and the application's environment; this is not isolation between untrusted developers. Back up the home volume separately and test recovery before upgrades.
 
 ## Common Use Cases
 
-- Browser IDE on a persistent Railway volume
-- Remote Node.js / Python development without SSH
-- Always-on personal VS Code with Open VSX extensions
-- Teaching or demo environments that survive redeploys
-- Replacement for rotting 4.9.0 code-server clones
+- Browser-based Node.js and Python development.
+- Personal git working trees and Open VSX extensions.
+- A persistent editor without running a full Coder control plane.
 
 ## Dependencies for code-server Hosting
 
-- Public GitHub source: [leoisadev1/railway-template-code-server](https://github.com/leoisadev1/railway-template-code-server)
-- Docker image base: `codercom/code-server:4.135.0`
-- Railway volume at `/home/coder`
-- Generated `PASSWORD` secret
-- Public HTTP domain
+A Railway service, `/home/coder` volume, generated password, and public HTTPS domain.
 
 ### Deployment Dependencies
 
-| Variable | Required | Default | Purpose |
-| --- | --- | --- | --- |
-| `PASSWORD` | generated | `${{secret()}}` | Login password. Railway generates a unique value per deploy. |
-| `PORT` | injected | Railway sets this | Listen port. code-server honors `$PORT` over the image default of 8080. |
+- [Template source](https://github.com/leoisadev1/railway-template-code-server).
+- [code-server documentation and source](https://github.com/coder/code-server).
+- The Dockerfile's pinned image and installed development tools.
 
-Optional: set `HASHED_PASSWORD` (argon2) instead of `PASSWORD` if you want a hashed secret. `HASHED_PASSWORD` takes precedence.
+## Why Deploy code-server on Railway?
 
-Do not set `PASSWORD` to a dummy value in the template. Leave it as the generated secret.
+Railway hosts the editor container, HTTPS/WebSocket routing, and home volume. You control workspace access, tool updates, backups, and the resources allocated to builds and development processes.
 
-| Mount | Why |
-| --- | --- |
-| `/home/coder` | Persistent home. Settings, Open VSX extensions, `~/.config/code-server`, git config, and project files survive restarts. |
+## Verification limits
 
-UID 1000 (`coder`) owns the home directory. The entrypoint `chown`s the volume on first boot if Railway mounts it unwritable.
-
-- **HTTP** on `$PORT` (image also `EXPOSE 8080`). Railway assigns a public domain to this service.
-- Healthcheck: `GET /healthz` (unauthenticated). Returns `{"status":"alive",...}`.
-- Restart policy: on failure.
-
-## After Deploy
-
-1. Copy `PASSWORD` from the `code-server` service Variables tab.
-2. Open the Railway-generated HTTPS URL.
-3. Sign in on the code-server login page (`Welcome to code-server`).
-
-There is no unauthenticated shell and no SSH. Password auth is required.
-
-Use the integrated terminal after login: `node -v`, `python --version`, `npm`, `pip`.
+Generated-password browser login, editor saves, terminal commands, restart/redeploy file persistence, and root-owned-file migration were exercised on Railway amd64. Port 9123 was exercised in cloud; the 8080 fallback has local regression coverage. Argon2-only browser login, arm64 runtime, and extension installation/persistence were not tested. Mobile checks used a 390×844 server-side Chromium viewport, not a physical phone: login and a resized terminal worked, but the default desktop layout is cramped and a full mobile editor-save workflow was not tested.
