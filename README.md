@@ -1,10 +1,10 @@
 # Deploy and Host code-server on Railway
 
-A personal VS Code workspace in the browser, using code-server 4.135.0 with Node.js, npm, Python, and a persistent home directory. This is one editor service, not the Coder control plane.
+A personal VS Code workspace in the browser, using code-server 4.145.2 (VS Code 1.145.2) with Node.js 24 LTS, npm, Python 3.13, and a persistent home directory. This is one editor service, not the Coder control plane.
 
 ## About Hosting code-server
 
-The Dockerfile pins the code-server image by digest and adds development tools. Startup initializes ownership of the mounted home, then runs the editor and integrated terminal as `coder` (UID 1000). Password authentication is explicitly enabled.
+The Dockerfile pins the code-server image by digest, installs Node.js 24 LTS from nodejs.org with pinned release checksums, and adds Python and build tools from Debian. Startup initializes ownership of the mounted home, then runs the editor and integrated terminal as `coder` (UID 1000). Password authentication is explicitly enabled.
 
 ### Deploy and sign in
 
@@ -20,6 +20,7 @@ The Dockerfile pins the code-server image by digest and adds development tools. 
 - Optional `HASHED_PASSWORD` accepts an upstream-supported Argon2 hash and takes precedence over `PASSWORD`; remove the plaintext variable when switching to a hash. Startup rejects empty credentials even if an old config file contains a password.
 - `PORT` defaults to `8080` and is passed explicitly to the editor. Keep an explicitly configured domain target port aligned with it.
 - Railway terminates HTTPS and forwards HTTP/WebSocket traffic to the container. There is no bundled SSH daemon.
+- Anonymous requests to the editor (`/`, `/vscode`), the port proxies (`/proxy/<port>/`, `/absproxy/<port>/`) and the editor and proxy websockets are redirected to the login page or refused with 401. The session cookie is `HttpOnly`, and code-server strips it from requests it forwards to proxied ports. Proxied pages share the editor's origin, so open only services you trust through the proxy.
 - `/healthz` is an unauthenticated process-heartbeat endpoint, with a 60-second startup healthcheck allowance. It does not prove a successful editor save, authenticated session, or terminal connection.
 
 ### Persistence and access boundaries
@@ -49,5 +50,7 @@ A Railway service, `/home/coder` volume, generated password, and public HTTPS do
 Railway hosts the editor container, HTTPS/WebSocket routing, and home volume. You control workspace access, tool updates, backups, and the resources allocated to builds and development processes.
 
 ## Verification limits
+
+Release v1.1.0 (code-server 4.145.2, Node.js 24.22.3) was verified locally on amd64 with `scripts/smoke.sh` and has not yet been deployed to Railway. The Railway checks below were run against v1.0.0 (code-server 4.135.0).
 
 Generated-password browser login, editor saves, terminal commands, restart/redeploy file persistence, and root-owned-file migration were exercised on Railway amd64. Port 9123 was exercised in cloud; the 8080 fallback has local regression coverage. Argon2-only browser login, arm64 runtime, and extension installation/persistence were not tested. Mobile checks used a 390×844 server-side Chromium viewport, not a physical phone: login and a resized terminal worked, but the default desktop layout is cramped and a full mobile editor-save workflow was not tested.
