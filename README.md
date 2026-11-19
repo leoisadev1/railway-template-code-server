@@ -29,6 +29,8 @@ The `/home/coder` volume stores projects, editor settings, Open VSX extensions, 
 
 The upstream image includes passwordless sudo: an authenticated terminal user can become root. Running the editor as coder is not a privilege boundary. Use one workspace service for trusted users only. Integrated-terminal access includes workspace files and the application's environment; this is not isolation between untrusted developers. Back up the home volume separately and test recovery before upgrades.
 
+code-server 4.145.2 bundles VS Code 1.145.2. VS Code 1.145.3 fixed Workspace Trust bypasses and remote code execution through MCP install links, MCP servers and extension dialogs; no code-server release includes those fixes yet. Until one does, open only folders and repositories you trust, and install extensions and MCP servers only from publishers you trust.
+
 ## Common Use Cases
 
 - Browser-based Node.js and Python development.
@@ -51,6 +53,8 @@ Railway hosts the editor container, HTTPS/WebSocket routing, and home volume. Yo
 
 ## Verification limits
 
+Release v1.1.1 ships the same Dockerfile, entrypoint and Railway configuration as v1.1.0, so the checks below still apply. It adds guidance on the VS Code advisories that code-server has not shipped yet, and local tests for Argon2 login and for refusing to start without a credential.
+
 Release v1.1.0 (code-server 4.145.2, Node.js 24.22.3) was verified locally on amd64 with `scripts/smoke.sh`, then deployed to Railway amd64 on 2026-11-18 from the live listing's configuration. The remote checks covered the health check, login redirects for the editor and both port proxies, a refused anonymous websocket, wrong-password rejection, the `HttpOnly` session cookie, authenticated editor and websocket access, the served code-server version, and login and the stored code-server config surviving a redeploy. Editor saves and terminal commands were not repeated on Railway for v1.1.0; the local smoke covers them.
 
-Earlier Railway checks against v1.0.0 (code-server 4.135.0) exercised generated-password browser login, editor saves, terminal commands, restart/redeploy file persistence, and root-owned-file migration on Railway amd64. Port 9123 was exercised in cloud; the 8080 fallback has local regression coverage. Argon2-only browser login, arm64 runtime, and extension installation/persistence were not tested. Mobile checks used a 390×844 server-side Chromium viewport, not a physical phone: login and a resized terminal worked, but the default desktop layout is cramped and a full mobile editor-save workflow was not tested.
+Earlier Railway checks against v1.0.0 (code-server 4.135.0) exercised generated-password browser login, editor saves, terminal commands, restart/redeploy file persistence, and root-owned-file migration on Railway amd64. Port 9123 was exercised in cloud; the 8080 fallback has local regression coverage. Argon2 `HASHED_PASSWORD` login has local regression coverage since v1.1.1 but was not tested on Railway; arm64 runtime and extension installation/persistence were not tested. Mobile checks used a 390×844 server-side Chromium viewport, not a physical phone: login and a resized terminal worked, but the default desktop layout is cramped and a full mobile editor-save workflow was not tested.

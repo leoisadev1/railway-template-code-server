@@ -4,3 +4,4 @@
 STATUS.md
 *.md
 .railway
+node_modules
