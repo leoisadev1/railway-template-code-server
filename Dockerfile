@@ -1,5 +1,5 @@
-# code-server 4.145.2 (Code 1.145.2), pinned to the verified multi-architecture image index.
-FROM docker.io/codercom/code-server:4.145.2@sha256:09565f9e07f5624554e295e8bab0e2fec4a7c533eb3cff459ed6596a4d3d7c1c
+# code-server 4.146.0 (Code 1.146.0), pinned to the verified multi-architecture image index.
+FROM docker.io/codercom/code-server:4.146.0@sha256:fc708b18f6c613b5a9d00f1d1801e58376d3df9c5b5de77f5c02d67b711f99c9
 
 ARG TARGETARCH
 USER root
@@ -18,6 +18,9 @@ RUN apt-get update \
 
 # Node.js 24 LTS from nodejs.org. Debian trixie only ships Node.js 20, which is past
 # upstream end of life. Checksums come from the release's signed SHASUMS256.txt.
+# code-server 4.146.0 bundles Node.js 24.22.1, which lacks the 24.22.3 security release
+# (llhttp, undici and others), so its lib/node becomes a link to the verified 24.22.3. Both are
+# Node ABI 137, so the bundled native modules load unchanged; scripts/smoke.sh loads each one.
 RUN set -eu; \
   node_version=24.22.3; \
   case "${TARGETARCH:-$(dpkg --print-architecture)}" in \
@@ -31,7 +34,10 @@ RUN set -eu; \
     --exclude='*/CHANGELOG.md' --exclude='*/LICENSE' --exclude='*/README.md'; \
   rm -f /tmp/node.tar.xz; \
   test "$(node --version)" = "v${node_version}"; \
-  npm --version >/dev/null
+  npm --version >/dev/null; \
+  test "$(/usr/lib/code-server/lib/node -p process.versions.modules)" = "$(node -p process.versions.modules)"; \
+  ln -sf /usr/local/bin/node /usr/lib/code-server/lib/node; \
+  test "$(/usr/lib/code-server/lib/node --version)" = "v${node_version}"
 
 COPY entrypoint.sh /usr/local/bin/railway-entrypoint.sh
 RUN chmod 755 /usr/local/bin/railway-entrypoint.sh

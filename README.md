@@ -1,10 +1,10 @@
 # Deploy and Host code-server on Railway
 
-A personal VS Code workspace in the browser, using code-server 4.145.2 (VS Code 1.145.2) with Node.js 24 LTS, npm, Python 3.13, and a persistent home directory. This is one editor service, not the Coder control plane.
+A personal VS Code workspace in the browser, using code-server 4.146.0 (VS Code 1.146.0) with Node.js 24 LTS, npm, Python 3.13, and a persistent home directory. This is one editor service, not the Coder control plane.
 
 ## About Hosting code-server
 
-The Dockerfile pins the code-server image by digest, installs Node.js 24 LTS from nodejs.org with pinned release checksums, and adds Python and build tools from Debian. Startup initializes ownership of the mounted home, then runs the editor and integrated terminal as `coder` (UID 1000). Password authentication is explicitly enabled.
+The Dockerfile pins the code-server image by digest, installs Node.js 24 LTS from nodejs.org with pinned release checksums and runs the editor server on it, and adds Python and build tools from Debian. Startup initializes ownership of the mounted home, then runs the editor and integrated terminal as `coder` (UID 1000). Password authentication is explicitly enabled.
 
 ### Deploy and sign in
 
@@ -29,7 +29,7 @@ The `/home/coder` volume stores projects, editor settings, Open VSX extensions, 
 
 The upstream image includes passwordless sudo: an authenticated terminal user can become root. Running the editor as coder is not a privilege boundary. Use one workspace service for trusted users only. Integrated-terminal access includes workspace files and the application's environment; this is not isolation between untrusted developers. Back up the home volume separately and test recovery before upgrades.
 
-code-server 4.145.2 bundles VS Code 1.145.2. VS Code 1.145.3 fixed Workspace Trust bypasses and remote code execution through MCP install links, MCP servers and extension dialogs; no code-server release includes those fixes yet. Until one does, open only folders and repositories you trust, and install extensions and MCP servers only from publishers you trust.
+code-server 4.146.0 bundles VS Code 1.146.0, which includes the Workspace Trust, MCP and extension-dialog fixes from VS Code 1.145.3. Open folders you do not trust in Restricted Mode, and install extensions and MCP servers only from publishers you trust: an extension or MCP server runs with the workspace user's full access.
 
 ## Common Use Cases
 
@@ -52,6 +52,8 @@ A Railway service, `/home/coder` volume, generated password, and public HTTPS do
 Railway hosts the editor container, HTTPS/WebSocket routing, and home volume. You control workspace access, tool updates, backups, and the resources allocated to builds and development processes.
 
 ## Verification limits
+
+Release v1.1.2 (code-server 4.146.0 with VS Code 1.146.0, and the editor server on Node.js 24.22.3 instead of the bundled 24.22.1) was verified locally on amd64 with `scripts/smoke.sh`, which now also loads every bundled native module under that Node.js, spawns a terminal process, and upgrades a volume first used by v1.1.1. The Railway checks below were run against earlier releases.
 
 Release v1.1.1 ships the same Dockerfile, entrypoint and Railway configuration as v1.1.0, so the checks below still apply. It adds guidance on the VS Code advisories that code-server has not shipped yet, and local tests for Argon2 login and for refusing to start without a credential.
 
